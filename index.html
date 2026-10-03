@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Faded Thread">
+    <meta name="theme-color" content="#0a0812">
+    <meta name="format-detection" content="telephone=no">
+    <title>Faded Thread</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #0a0812;
+            font-family: 'Courier New', Courier, monospace;
+            transition: background-color 1s ease;
+        }
+        canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+        }
+        #ui {
+            position: absolute;
+            z-index: 9250;
+            top: 20px;
+            left: 20px;
+            color: #aabbd8;
+            font-weight: bold;
+            font-size: 15px;
+            pointer-events: none;
+            line-height: 1.7;
+            text-shadow: 0 0 12px rgba(120,160,255,0.6), 0 1px 3px rgba(0,0,0,0.8);
+            letter-spacing: 0.5px;
+        }
+        #game-over {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #ccd8ff;
+            text-align: center;
+            display: none;
+            text-shadow: 0 0 30px rgba(140,160,255,0.8), 0 2px 8px rgba(0,0,0,0.9);
+        }
+        h1 { font-size: 3rem; margin-bottom: 10px; letter-spacing: 8px; }
+        p { font-size: 1.1rem; opacity: 0.75; }
+
+        #home-screen {
+            position: fixed;
+            inset: 0;
+            z-index: 20;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            background:
+                radial-gradient(circle at 22% 18%, rgba(170,190,255,0.22), transparent 30%),
+                radial-gradient(circle at 80% 70%, rgba(221,153,255,0.18), transparent 32%),
+                linear-gradient(135deg, rgba(6,4,15,0.94), rgba(15,10,28,0.96));
+            color: #eaf0ff;
+        }
+        #home-screen::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background-image:
+                linear-gradient(115deg, transparent 0 46%, rgba(180,210,255,0.08) 47% 48%, transparent 49% 100%),
+                linear-gradient(65deg, transparent 0 50%, rgba(221,153,255,0.06) 51% 52%, transparent 53% 100%);
+            background-size: 120px 120px, 160px 160px;
+            opacity: 0.9;
+            pointer-events: none;
+        }
+        .home-panel {
+            position: relative;
+            width: min(760px, 94vw);
+            border: 1px solid rgba(190,210,255,0.35);
+            border-radius: 28px;
+            padding: 34px;
+            background: linear-gradient(180deg, rgba(14,16,34,0.88), rgba(5,6,14,0.82));
+            box-shadow: 0 0 55px rgba(110,145,255,0.26), inset 0 0 40px rgba(255,255,255,0.04);
+            text-align: center;
+            overflow: hidden;
+        }
+        .home-panel::after {
+            content: "";
+            position: absolute;
+            left: 12%; right: 12%; bottom: 18px; height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(220,235,255,0.8), transparent);
+        }
+        .home-panel h1 { font-size: clamp(2.2rem, 7vw, 4.4rem); letter-spacing: 9px; margin-bottom: 12px; }
+        .home-panel p { font-size: 1rem; line-height: 1.6; margin: 0 auto 18px; max-width: 620px; opacity: 0.82; }
+        .home-rune { width: 94px; height: 94px; margin: 0 auto 18px; border-radius: 50%; border: 2px solid rgba(210,225,255,0.55); box-shadow: 0 0 28px rgba(170,190,255,0.5); display: grid; place-items: center; font-size: 2.4rem; }
+        .home-buttons { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-top: 20px; }
+        .save-card {
+            border: 1px solid rgba(190,210,255,0.42);
+            border-radius: 18px;
+            padding: 12px;
+            background: linear-gradient(180deg, rgba(255,255,255,0.10), rgba(255,255,255,0.04));
+            box-shadow: inset 0 0 20px rgba(255,255,255,0.035);
+        }
+        .save-card-title { font-weight: bold; letter-spacing: 1px; margin-bottom: 5px; }
+        .slot-meta { display: block; font-size: 0.72rem; opacity: 0.72; margin: 6px 0 10px; font-weight: normal; letter-spacing: 0; line-height: 1.35; }
+        .slot-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .slot-actions.single { grid-template-columns: 1fr; }
+        .home-buttons button {
+            cursor: pointer;
+            border: 1px solid rgba(190,210,255,0.42);
+            border-radius: 13px;
+            padding: 11px 10px;
+            background: rgba(255,255,255,0.08);
+            color: #eaf0ff;
+            font-family: inherit;
+            font-weight: bold;
+            letter-spacing: 1px;
+            transition: transform 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
+        }
+        .home-buttons button:hover { transform: translateY(-2px); background: rgba(180,205,255,0.18); box-shadow: 0 0 22px rgba(160,185,255,0.22); }
+        .delete-save { border-color: rgba(255,150,150,0.5) !important; color: #ffd1d1 !important; }
+        #ui.home-hidden { display: none; }
+        .audio-settings { margin-top:16px; padding:12px 14px; border:1px solid rgba(190,210,255,.22); border-radius:13px; background:linear-gradient(180deg,rgba(255,255,255,.045),rgba(255,255,255,.018)); text-align:left; }
+        .audio-settings-title { display:flex; align-items:center; justify-content:space-between; font-size:.72rem; font-weight:700; letter-spacing:2.4px; margin-bottom:8px; color:#dce8ff; opacity:.9; }
+        .audio-settings-title::after { content:'MIXER'; font-size:.56rem; letter-spacing:1.4px; color:rgba(220,232,255,.42); }
+        .audio-row { display:grid; grid-template-columns:64px minmax(100px,1fr) 34px; gap:9px; align-items:center; min-height:30px; margin:3px 0; font-size:.68rem; letter-spacing:1px; color:rgba(238,244,255,.78); }
+        .audio-row input { width:100%; height:4px; margin:0; appearance:none; border-radius:999px; background:linear-gradient(90deg,rgba(184,200,255,.88),rgba(125,145,215,.42)); outline:none; cursor:pointer; }
+        .audio-row input::-webkit-slider-thumb { appearance:none; width:13px; height:13px; border-radius:50%; border:2px solid rgba(255,255,255,.9); background:#9fb4ff; box-shadow:0 0 9px rgba(130,165,255,.7); }
+        .audio-row input::-moz-range-thumb { width:11px; height:11px; border-radius:50%; border:2px solid rgba(255,255,255,.9); background:#9fb4ff; box-shadow:0 0 9px rgba(130,165,255,.7); }
+        .audio-value { min-width:30px; text-align:right; font-variant-numeric:tabular-nums; color:rgba(238,244,255,.62); }
+        #audio-toggle { position:fixed; z-index:25; right:14px; top:14px; width:36px; height:36px; border-radius:11px; border:1px solid rgba(190,210,255,.3); background:rgba(8,10,23,.72); backdrop-filter:blur(10px); color:#eef4ff; cursor:pointer; font-size:15px; box-shadow:0 8px 22px rgba(0,0,0,.24),0 0 13px rgba(120,160,255,.14); transition:transform .15s ease,background .15s ease; }
+        #audio-toggle:hover { transform:translateY(-1px); background:rgba(15,19,40,.9); }
+        #audio-panel { position:fixed; z-index:26; right:14px; top:58px; width:min(278px,calc(100vw - 28px)); padding:12px 13px 10px; border:1px solid rgba(200,220,255,.28); border-radius:13px; background:rgba(7,9,22,.88); backdrop-filter:blur(16px); color:#eef4ff; opacity:0; pointer-events:none; transform:translateY(-7px) scale(.985); transition:opacity .16s ease,transform .16s ease; box-shadow:0 15px 40px rgba(0,0,0,.34),0 0 24px rgba(100,140,255,.13); }
+        #audio-panel.show { opacity:1; pointer-events:auto; transform:translateY(0) scale(1); }
+
+        .home-transfer-row { margin-top: 14px; }
+        .home-transfer-row button {
+            cursor: pointer;
+            width: 100%;
+            border: 1px dashed rgba(190,210,255,0.5);
+            border-radius: 13px;
+            padding: 11px 10px;
+            background: rgba(255,255,255,0.05);
+            color: #cfe0ff;
+            font-family: inherit;
+            font-weight: bold;
+            letter-spacing: 1.5px;
+            font-size: 0.82rem;
+            transition: transform 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
+        }
+        .home-transfer-row button:hover { transform: translateY(-2px); background: rgba(180,205,255,0.14); box-shadow: 0 0 20px rgba(160,185,255,0.2); }
+
+        #transfer-menu {
+            position: fixed;
+            inset: 0;
+            z-index: 40;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            background: rgba(3,4,12,0.78);
+            color: #eef4ff;
+            font-family: 'Courier New', Courier, monospace;
+        }
+        #transfer-menu.show { display: flex; }
+        .transfer-panel {
+            width: min(640px, 94vw);
+            max-height: 86vh;
+            overflow: auto;
+            border: 1px solid rgba(210,225,255,0.45);
+            border-radius: 22px;
+            padding: 24px;
+            background: linear-gradient(180deg, rgba(15,18,40,0.97), rgba(4,6,16,0.95));
+            box-shadow: 0 0 55px rgba(120,160,255,0.28);
+            text-align: center;
+        }
+        .transfer-panel h2 { letter-spacing: 4px; margin-bottom: 8px; }
+        .transfer-help { opacity: 0.75; font-size: 0.84rem; margin-bottom: 18px; line-height: 1.4; }
+        .transfer-section { margin-bottom: 18px; text-align: left; }
+        .transfer-section-title { font-weight: bold; letter-spacing: 2px; margin-bottom: 2px; color: #cfe0ff; }
+        .transfer-section-sub { font-size: 0.76rem; opacity: 0.68; margin-bottom: 10px; }
+        .transfer-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
+        .transfer-grid button {
+            cursor: pointer;
+            border: 1px solid rgba(190,210,255,0.4);
+            border-radius: 12px;
+            padding: 9px 8px;
+            background: rgba(255,255,255,0.07);
+            color: #eaf0ff;
+            font-family: inherit;
+            font-weight: bold;
+            font-size: 0.78rem;
+            letter-spacing: 0.5px;
+        }
+        .transfer-grid button:hover:not(:disabled) { background: rgba(180,205,255,0.16); }
+        .transfer-grid button:disabled { opacity: 0.4; cursor: not-allowed; }
+        .transfer-grid button .slot-sub { display: block; font-size: 0.68rem; font-weight: normal; opacity: 0.7; margin-top: 3px; }
+        #transfer-status { min-height: 20px; font-size: 0.82rem; margin: 10px 0 4px; opacity: 0.9; }
+        #transfer-status.ok { color: #bfffd1; }
+        #transfer-status.err { color: #ffc6c6; }
+        .transfer-close {
+            cursor: pointer;
+            margin-top: 8px;
+            border: 1px solid rgba(190,210,255,0.42);
+            border-radius: 13px;
+            padding: 10px 22px;
+            background: rgba(255,255,255,0.08);
+            color: #eaf0ff;
+            font-family: inherit;
+            font-weight: bold;
+            letter-spacing: 1px;
+        }
+        .transfer-close:hover { background: rgba(180,205,255,0.18); }
+        #magic-notice {
+            position: absolute;
+            left: 50%;
+            bottom: 58px;
+            transform: translateX(-50%) translateY(20px);
+            width: min(620px, calc(100vw - 36px));
+            padding: 14px 18px;
+            border: 1px solid rgba(220,235,255,0.5);
+            border-radius: 16px;
+            color: #eef4ff;
+            background: linear-gradient(180deg, rgba(13,16,36,0.92), rgba(4,6,16,0.88));
+            box-shadow: 0 0 30px rgba(130,170,255,0.28), inset 0 0 18px rgba(255,255,255,0.05);
+            text-align: center;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.25s ease, transform 0.25s ease;
+            text-shadow: 0 0 12px rgba(130,170,255,0.45);
+        }
+        #magic-notice.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+        #magic-notice-title { font-weight: bold; letter-spacing: 1.5px; margin-bottom: 4px; }
+        #magic-notice-body { font-size: 0.9rem; line-height: 1.35; opacity: 0.86; }
+
+        #equipment-menu {
+            position: fixed;
+            inset: 0;
+            z-index: 30;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            background: rgba(3,4,12,0.72);
+            color: #eef4ff;
+            font-family: 'Courier New', Courier, monospace;
+        }
+        #equipment-menu.show { display: flex; }
+        .equipment-panel {
+            width: min(880px, 94vw);
+            max-height: 86vh;
+            overflow: auto;
+            border: 1px solid rgba(210,225,255,0.45);
+            border-radius: 22px;
+            padding: 22px;
+            background: linear-gradient(180deg, rgba(15,18,40,0.96), rgba(4,6,16,0.94));
+            box-shadow: 0 0 55px rgba(120,160,255,0.28);
+        }
+        .equipment-panel h2 { letter-spacing: 4px; margin-bottom: 8px; }
+        .equipment-help { opacity: 0.75; font-size: 0.86rem; margin-bottom: 16px; line-height: 1.4; }
+        .equipment-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
+        .equipment-card {
+            border: 1px solid rgba(190,210,255,0.32);
+            border-radius: 14px;
+            padding: 10px;
+            background: rgba(255,255,255,0.06);
+        }
+        .equipment-card.equipped { border-color: rgba(150,255,190,0.75); box-shadow: inset 0 0 18px rgba(120,255,170,0.08); }
+        .equipment-card button {
+            cursor: pointer;
+            width: 100%;
+            margin-top: 8px;
+            border: 1px solid rgba(190,210,255,0.42);
+            border-radius: 10px;
+            padding: 8px;
+            background: rgba(255,255,255,0.09);
+            color: #eef4ff;
+            font-family: inherit;
+            font-weight: bold;
+        }
+        .equipment-card button:disabled { opacity: 0.45; cursor: not-allowed; }
+        .equipment-name { font-weight: bold; }
+        .equipment-effect { font-size: 0.78rem; line-height: 1.35; opacity: 0.8; margin-top: 4px; }
+        .equipment-equipped-line { margin-bottom: 12px; font-size: 0.86rem; color: #bfffd1; }
+    
+
+        /* Final death-screen and home settings drawer */
+        #death-screen {
+            position: fixed; inset: 0; z-index: 12000; display: none;
+            align-items: center; justify-content: center;
+            background: radial-gradient(circle at 50% 42%, rgba(36,27,61,.58), rgba(3,4,10,.94) 68%);
+            backdrop-filter: blur(9px);
+        }
+        #death-screen.show { display: flex; animation: ftDeathFade .28s ease-out both; }
+        @keyframes ftDeathFade { from { opacity: 0; } to { opacity: 1; } }
+        .death-card {
+            width: min(560px, calc(100vw - 36px)); padding: 32px;
+            border: 1px solid rgba(215,225,255,.28); border-radius: 22px;
+            background: linear-gradient(155deg, rgba(24,22,43,.96), rgba(9,10,20,.96));
+            box-shadow: 0 28px 90px rgba(0,0,0,.62), inset 0 1px rgba(255,255,255,.08);
+            text-align: center;
+        }
+        .death-eyebrow { font-size: .72rem; letter-spacing: .34em; opacity: .58; }
+        .death-card h2 { margin: 10px 0 6px; font-size: clamp(2rem, 7vw, 3.6rem); letter-spacing: .14em; }
+        .death-sub { opacity: .72; margin-bottom: 22px; }
+        #death-stats { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 10px; text-align: left; }
+        .death-stat { padding: 12px 14px; border-radius: 12px; background: rgba(255,255,255,.055); border: 1px solid rgba(210,225,255,.11); }
+        .death-stat-label { font-size: .66rem; letter-spacing: .14em; opacity: .55; }
+        .death-stat-value { margin-top: 5px; font-size: 1rem; font-weight: 700; }
+        .death-actions { display:flex; gap:10px; margin-top:22px; }
+        .death-actions button { flex:1; padding:12px; border-radius:12px; border:1px solid rgba(210,225,255,.28); background:rgba(255,255,255,.08); color:#f4f6ff; font:700 .82rem inherit; letter-spacing:.08em; cursor:pointer; }
+        .death-actions button:hover { background:rgba(180,205,255,.17); }
+        #death-countdown { margin-top: 12px; font-size: .72rem; opacity: .5; }
+
+        #home-settings-button {
+            position:absolute; top:20px; right:20px; z-index:4; width:auto;
+            padding:10px 14px; border-radius:999px; border:1px solid rgba(210,225,255,.24);
+            background:rgba(10,12,24,.55); color:#eef3ff; font:700 .72rem inherit;
+            letter-spacing:.09em; cursor:pointer; backdrop-filter:blur(10px);
+        }
+        #home-settings-drawer {
+            position:fixed; top:0; right:0; bottom:0; z-index:11000; width:min(390px, 92vw);
+            padding:28px 24px; box-sizing:border-box; overflow:auto;
+            background:linear-gradient(180deg, rgba(18,19,35,.985), rgba(7,8,16,.99));
+            border-left:1px solid rgba(210,225,255,.18); box-shadow:-24px 0 70px rgba(0,0,0,.5);
+            transform:translateX(102%); transition:transform .34s cubic-bezier(.22,.8,.2,1);
+        }
+        #home-settings-drawer.show { transform:translateX(0); }
+        .drawer-head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:24px; }
+        .drawer-head h2 { margin:0; letter-spacing:.12em; font-size:1.05rem; }
+        .drawer-close { width:auto; padding:8px 10px; margin:0; }
+        .drawer-section { padding:16px; border:1px solid rgba(210,225,255,.12); border-radius:16px; background:rgba(255,255,255,.035); }
+        .drawer-section-title { font-size:.72rem; letter-spacing:.15em; font-weight:800; margin-bottom:6px; }
+        .drawer-section-copy { font-size:.75rem; line-height:1.45; opacity:.6; margin-bottom:13px; }
+        .death-option { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:10px 0; border-top:1px solid rgba(255,255,255,.065); font-size:.82rem; }
+        .death-option:first-of-type { border-top:0; }
+        .death-option input { width:17px; height:17px; accent-color:#b9c8ff; }
+        @media(max-width:560px){ #death-stats{grid-template-columns:1fr;} .death-card{padding:24px 18px;} }
+
+
+        /* FINAL HOME RUN DISPLAY PLACEMENT + CONTRAST */
+        #home-settings-button {
+            left: 20px !important;
+            right: auto !important;
+            top: 20px !important;
+        }
+        #home-settings-drawer,
+        #home-settings-drawer .drawer-head h2,
+        #home-settings-drawer .drawer-section,
+        #home-settings-drawer .drawer-section-title,
+        #home-settings-drawer .drawer-section-copy,
+        #home-settings-drawer .death-option,
+        #home-settings-drawer .death-option span { color:#ffffff !important; }
+        #home-settings-drawer .drawer-close {
+            color:#000000 !important;
+            background:#ffffff !important;
+            border-color:rgba(255,255,255,.9) !important;
+        }
+
+    </style>
+
+    <style id="ft-home-slot-repair-style">
+      #home-screen .home-panel { width:min(980px,92vw); max-height:92vh; overflow-y:auto; }
+      #home-screen #home-buttons { display:grid !important; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; width:100%; min-height:0; visibility:visible !important; opacity:1 !important; }
+      #home-screen #home-buttons .save-card { display:block !important; visibility:visible !important; opacity:1 !important; min-height:118px; }
+      #home-screen .save-card-corrupt { border-color:rgba(255,130,130,.55); }
+      @media(max-width:850px){#home-screen #home-buttons{grid-template-columns:repeat(2,minmax(0,1fr));}}
+      @media(max-width:560px){#home-screen #home-buttons{grid-template-columns:1fr;}}
+    </style>
+    <link rel="stylesheet" href="mobile.css">
+</head>
+<body>
+<!-- Faded Thread modular build packaged 03 October 2026; mobile layer added -->
+
+    <div id="home-screen">
+        <button id="home-settings-button" onclick="openHomeSettings()">RUN DISPLAY</button>
+        <div class="home-panel">
+            <div class="home-rune">✦</div>
+            <h1>FADED THREAD</h1>
+            <p>Choose an empty slot to begin, or load an existing thread. Use your Autosave + Home control during play to save and return here. Press Esc to pause.</p>
+            <div class="home-buttons" id="home-buttons"></div>
+            <div class="home-transfer-row">
+                <button id="transfer-open-btn" onclick="openTransferMenu()">EXPORT / IMPORT SAVE</button>
+            </div>
+        </div>
+    </div>
+
+
+
+    <aside id="home-settings-drawer" aria-label="Home settings">
+        <div class="drawer-head"><h2>RUN DISPLAY</h2><button class="drawer-close" onclick="closeHomeSettings()">CLOSE</button></div>
+        <div class="drawer-section">
+            <div class="drawer-section-title">DEATH SCREEN INFORMATION</div>
+            <div class="drawer-section-copy">Choose which details appear when a thread breaks. These preferences are stored on this device.</div>
+            <label class="death-option"><span>Realm reached</span><input type="checkbox" data-death-stat="realm"></label>
+            <label class="death-option"><span>Platform progress</span><input type="checkbox" data-death-stat="platforms"></label>
+            <label class="death-option"><span>Run score</span><input type="checkbox" data-death-stat="score"></label>
+            <label class="death-option"><span>Boss rewards</span><input type="checkbox" data-death-stat="bosses"></label>
+            <label class="death-option"><span>Equipment found</span><input type="checkbox" data-death-stat="equipment"></label>
+            <label class="death-option"><span>Run time</span><input type="checkbox" data-death-stat="time"></label>
+            <label class="death-option"><span>Distance travelled</span><input type="checkbox" data-death-stat="distance"></label>
+        </div>
+    </aside>
+
+    <div id="death-screen" role="dialog" aria-modal="true" aria-label="Death screen">
+        <div class="death-card">
+            <div class="death-eyebrow">THE THREAD HAS BROKEN</div>
+            <h2>YOU FELL</h2>
+            <div class="death-sub" id="death-cause">The thread reforms, but the journey leaves a mark.</div>
+            <div id="death-stats"></div>
+            <div class="death-actions">
+                <button onclick="completeDeathRespawn()">RESPAWN NOW</button>
+                <button onclick="deathReturnHome()">SAVE &amp; RETURN HOME</button>
+            </div>
+            <div id="death-countdown">Respawning shortly…</div>
+        </div>
+    </div>
+
+    <div id="transfer-menu">
+        <div class="transfer-panel">
+            <h2>EXPORT / IMPORT SAVE</h2>
+            <div class="transfer-help">Export a slot to a .json file to back it up or send it to another player. Import a .json file into a chosen slot to overwrite it with that save.</div>
+
+            <div class="transfer-section">
+                <div class="transfer-section-title">EXPORT</div>
+                <div class="transfer-section-sub">Pick a slot to save as a file.</div>
+                <div class="transfer-grid" id="transfer-export-grid"></div>
+            </div>
+
+            <div class="transfer-section">
+                <div class="transfer-section-title">IMPORT</div>
+                <div class="transfer-section-sub">Pick a slot to overwrite, then choose a .json save file.</div>
+                <div class="transfer-grid" id="transfer-import-grid"></div>
+            </div>
+
+            <input type="file" id="transfer-file-input" accept="application/json,.json" style="display:none">
+            <div id="transfer-status"></div>
+            <button class="transfer-close" onclick="closeTransferMenu()">CLOSE</button>
+        </div>
+    </div>
+
+
+    <div id="ui">
+        Score: <span id="score">0</span> | Lives: <span id="lives">3</span><br>
+        Zone Progress: <span id="progress">0</span> / <span id="target">100</span><br>
+        Current Realm: <span id="realm">Faded Sadness</span>
+    </div>
+
+    <div id="game-over">
+        <h1 id="over-title">UNRAVELED</h1>
+        <p>Press 'R' to piece yourself back together.</p>
+    </div>
+
+    <div id="magic-notice">
+        <div id="magic-notice-title"></div>
+        <div id="magic-notice-body"></div>
+    </div>
+
+
+
+    <div id="equipment-menu">
+        <div class="equipment-panel">
+            <h2>EQUIPMENT</h2>
+            <div class="equipment-help">Use your Equipment control to close. You collect every magic item, relic and cosmetic upgrade permanently, but only 7 can be equipped at the same time.</div>
+            <div class="equipment-equipped-line" id="equipment-equipped-line">Equipped 0 / 7</div>
+            <div class="equipment-grid" id="equipment-grid"></div>
+        </div>
+    </div>
+
+    <button id="audio-toggle" aria-label="Audio settings">♫</button>
+    <div id="audio-panel">
+        <div class="audio-settings-title">AUDIO</div>
+        <div class="audio-row"><span>MASTER</span><input id="game-master-volume" type="range" min="0" max="100"><span class="audio-value" id="game-master-value"></span></div>
+        <div class="audio-row"><span>MUSIC</span><input id="game-music-volume" type="range" min="0" max="100"><span class="audio-value" id="game-music-value"></span></div>
+        <div class="audio-row"><span>SFX</span><input id="game-sfx-volume" type="range" min="0" max="100"><span class="audio-value" id="game-sfx-value"></span></div>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+
+        <script src="scripts/00-bootstrap.js"></script>
+    <script src="scripts/01-audio-synthesis.js"></script>
+    <script src="scripts/02-world-realm-player-data.js"></script>
+    <script src="scripts/03-boss-actions.js"></script>
+    <script src="scripts/04-entities-equipment-input.js"></script>
+    <script src="scripts/05-world-generation-platforms.js"></script>
+    <script src="scripts/06-rendering-player-enemies.js"></script>
+    <script src="scripts/07-combat-physics-runtime.js"></script>
+    <script src="scripts/08-backgrounds-saves-mainloop.js"></script>
+    <script src="scripts/09-expansion-v27.js"></script>
+    <script src="scripts/10-expansion-v30.js"></script>
+    <script src="scripts/11-expansion-v31.js"></script>
+    <script src="scripts/12-expansion-v32.js"></script>
+    <script src="scripts/13-themes-visual-identity.js"></script>
+    <script src="scripts/14-audio-transitions-backtracking.js"></script>
+    <script src="scripts/15-death-run-stats.js"></script>
+    <script src="scripts/16-release-audit-culling.js"></script>
+    <script src="scripts/17-startup-final-loot.js"></script>
+    <script src="scripts/18-controls-tutorial-mobile-gamepad.js"></script>
+    <script src="runtime-optimization.js"></script>
+    <script src="scripts/19-release-hardening.js"></script>
+    <script src="mobile.js"></script>
+</body>
+</html>
